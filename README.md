@@ -1,7 +1,3 @@
-Here’s a **short and clean README.md** version 👇
-
----
-
 # 🇻🇳 Vietnam Travel Assistant
 
 AI-powered **Vietnam trip planner** built with **React**, **Tailwind CSS**, and **Framer Motion**.
@@ -9,7 +5,7 @@ Chat with an assistant that provides markdown-formatted answers and optional rea
 
 ---
 
-## 🚀 Features
+## Features
 
 * Interactive AI chat
 * Toggle reasoning view
