@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { SendHorizonal, Loader2 } from "lucide-react";
+import { SendHorizonal, Loader2, Copy, Check } from "lucide-react";
 import Markdown from "react-markdown";
 
 export default function App() {
@@ -17,6 +17,9 @@ export default function App() {
 
   // Track which assistant messages have their reasoning expanded
   const [expanded, setExpanded] = useState({});
+
+  // Track which message was recently copied
+  const [copied, setCopied] = useState(null);
 
   // Helper: extract reasoning (inside <reasoning>...</reasoning>) and
   // return an object with main (visible) text and reasoning (optional)
@@ -39,7 +42,7 @@ export default function App() {
     }
 
     // Remove itinerary tags but keep their content
-    cleaned = cleaned.replace(/<\/?itinerary>/gi, "").trim();
+    cleaned = cleaned.replace(/<\/itinerary>|<itinerary>/gi, "").trim();
 
     // Final trimming
     return { main: cleaned, reasoning };
@@ -47,6 +50,42 @@ export default function App() {
 
   const toggleReasoning = (idx) => {
     setExpanded((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  // Copy handler: copies visible main text and, if the reasoning panel is expanded,
+  // appends the reasoning block as well.
+  const handleCopy = async (msg, idx) => {
+    const { main, reasoning } = parseMessage(msg.content);
+    let textToCopy = main || "";
+
+    if (expanded[idx] && reasoning) {
+      textToCopy += `\n\nReasoning:\n${reasoning}`;
+    }
+
+    // Try navigator.clipboard first, fallback to textarea method
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = textToCopy;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopied(idx);
+      setTimeout(() => setCopied(null), 1800);
+    } catch (err) {
+      console.error("Copy failed", err);
+      // Optionally inform the user; for simplicity we'll set copied to -1 for a short time
+      setCopied(-1);
+      setTimeout(() => setCopied(null), 1800);
+    }
   };
 
   const handleSend = async () => {
@@ -144,17 +183,28 @@ export default function App() {
                 >
                   <Markdown>{main}</Markdown>
 
-                  {/* If there is reasoning and it's an assistant message, show a small toggle */}
-                  {isAssistant && reasoning && (
+                  {/* Controls: reasoning toggle (if available) + copy button */}
+                  {isAssistant && (
                     <div className="mt-3 flex items-start gap-3">
+                      {reasoning && (
+                        <button
+                          onClick={() => toggleReasoning(i)}
+                          className="text-xs px-3 py-1 rounded-full border border-gray-600 bg-gray-900/40 hover:bg-gray-900/60 transition"
+                        >
+                          {expanded[i] ? "Hide reasoning" : "Show reasoning"}
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => toggleReasoning(i)}
-                        className="text-xs px-3 py-1 rounded-full border border-gray-600 bg-gray-900/40 hover:bg-gray-900/60 transition"
+                        onClick={() => handleCopy(msg, i)}
+                        className="text-xs px-3 py-1 rounded-full border border-gray-600 bg-gray-900/40 hover:bg-gray-900/60 transition flex items-center gap-2"
+                        aria-label="Copy message"
                       >
-                        {expanded[i] ? "Hide reasoning" : "Show reasoning"}
+                        {copied === i ? <Check size={14} /> : <Copy size={14} />}
+                        <span>{copied === i ? "Copied" : "Copy"}</span>
                       </button>
 
-                      <span className="text-xs text-gray-400 italic">chain-of-thought</span>
+                      {reasoning && <span className="text-xs text-gray-400 italic">chain-of-thought</span>}
                     </div>
                   )}
                 </motion.div>
